@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handwritten to LaTeX Converter</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="gradient-background">
+        <div class="container mt-5">
+            <div class="card shadow-lg fancy-card">
+                <div class="card-header text-center bg-dark text-white">
+                    <img src="{{ url_for('static', filename='logo.jpeg') }}" alt="Logo" class="logo">
+                    <h1 class="fancy-title">Handwritten to LaTeX Converter</h1>
+                </div>
+                <div class="card-body">
+                    <p class="lead text-center">Upload an image or PDF file to convert handwritten text to LaTeX.</p>
+
+                    {% with messages = get_flashed_messages() %}
+                      {% if messages %}
+                        <div class="alert alert-warning" role="alert">
+                          {{ messages[0] }}
+                        </div>
+                      {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" enctype="multipart/form-data" class="mb-4">
+                        <div class="form-group">
+                            <label for="file" class="font-weight-bold">Select File:</label>
+                            <input type="file" class="form-control-file" id="file" name="file" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block fancy-button">
+                            <i class="fas fa-upload"></i> Upload
+                        </button>
+                    </form>
+
+                    {% if latex_code %}
+                    <h2 class="mt-4">LaTeX Code:</h2>
+                    <div class="latex-output">
+                        <textarea class="form-control" rows="15" readonly>{{ latex_code }}</textarea>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+</body>
+</html>
+
