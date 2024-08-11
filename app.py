@@ -1,44 +1,27 @@
-import pytesseract
+from flask import Flask, render_template, request, redirect, url_for, flash
+from werkzeug.utils import secure_filename
 from PIL import Image
-import tkinter as tk
-from tkinter import filedialog, Text, Scrollbar, messagebox
+import pytesseract
 from pdf2image import convert_from_path
+import os
 
-# Function to open and process the file (image or PDF)
-def open_file():
-    try:
-        file_path = filedialog.askopenfilename(
-            initialdir="/", title="Select File", filetypes=(("Image files", "*.png;*.jpg"), ("PDF files", "*.pdf"), ("All files", "*.*")))
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Replace with a strong secret key
+UPLOAD_FOLDER = 'uploads/'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 
-        if not file_path:
-            return
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-        print(f"Selected file: {file_path}")
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-        # Determine if the file is a PDF or an image
-        if file_path.lower().endswith('.pdf'):
-            images = convert_from_path(file_path)
-            text = ""
-            for img in images:
-                text += pytesseract.image_to_string(img)
-        else:
-            img = Image.open(file_path)
-            text = pytesseract.image_to_string(img)
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-        latex_code = convert_to_latex(text)
-
-        # Clear the text widget and insert the LaTeX code
-        text_widget.delete(1.0, tk.END)
-        text_widget.insert(tk.END, latex_code)
-        
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to process file: {e}")
-
-# Function to convert text to LaTeX format
 def convert_to_latex(text):
-    latex_text = text.replace(" ", " ")  # Preserve spaces
-    latex_text = latex_text.replace("\n", "\\\\\n")  # New lines to LaTeX line breaks
-    latex_text = latex_text.replace("+", r"\+")  # Escape LaTeX-specific characters
+    latex_text = text.replace(" ", " ")
+    latex_text = latex_text.replace("\n", "\\\\\n")
+    latex_text = latex_text.replace("+", r"\+")
     latex_text = latex_text.replace("_", r"\_")
     latex_text = latex_text.replace("%", r"\%")
     latex_text = latex_text.replace("&", r"\&")
@@ -46,49 +29,49 @@ def convert_to_latex(text):
     latex_text = latex_text.replace("$", r"\$")
     latex_text = latex_text.replace("{", r"\{")
     latex_text = latex_text.replace("}", r"\}")
-    
-    # Handle fractions
     latex_text = latex_text.replace("/", r"\frac")
-    
-    # You can add more rules here to handle other LaTeX commands
     return latex_text
 
-# Set up the main window
-root = tk.Tk()
-root.title("Handwritten to LaTeX Converter")
-root.geometry("600x400")
-root.configure(bg="#f0f0f0")  # Set a light background color
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        # If user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
 
-# Create a frame for the button and instructions
-frame = tk.Frame(root, padx=10, pady=10, bg="#ffffff", borderwidth=2, relief="sunken")
-frame.pack(padx=20, pady=10, fill=tk.X)
+            try:
+                if filename.lower().endswith('.pdf'):
+                    images = convert_from_path(file_path)
+                    text = ""
+                    for img in images:
+                        text += pytesseract.image_to_string(img) + "\n"
+                else:
+                    img = Image.open(file_path)
+                    text = pytesseract.image_to_string(img)
+                
+                latex_code = convert_to_latex(text)
+                
+            except Exception as e:
+                flash(f"Error processing file: {e}")
+                return redirect(request.url)
+            
+            return render_template('index.html', latex_code=latex_code)
+    
+    return render_template('index.html', latex_code=None)
 
-# Add a title label
-title_label = tk.Label(frame, text="Handwritten to LaTeX Converter", font=("Arial", 16, "bold"), bg="#ffffff", fg="#004d00")
-title_label.pack(pady=(0, 10))
-
-# Add instructions label
-instructions_label = tk.Label(frame, text="Click 'Open File' to select an image or PDF file containing handwritten text.", font=("Arial", 12), bg="#ffffff", fg="#333333")
-instructions_label.pack(pady=(0, 10))
-
-# Add a button to open a file
-open_button = tk.Button(frame, text="Open File", padx=10, pady=5, fg="white", bg="#0056b3", font=("Arial", 12), command=open_file)
-open_button.pack()
-
-# Create a frame for the text widget
-text_frame = tk.Frame(root, padx=10, pady=10, bg="#ffffff", borderwidth=2, relief="sunken")
-text_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
-
-# Add a scrollable text widget to display the LaTeX code
-text_widget = Text(text_frame, wrap=tk.WORD, undo=True, width=70, height=15, font=("Arial", 12), bg="#f5f5f5", fg="#000000")
-text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-# Add a scrollbar
-scrollbar = Scrollbar(text_frame)
-scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-text_widget.config(yscrollcommand=scrollbar.set)
-scrollbar.config(command=text_widget.yview)
-
+if __name__ == '__main__':
+    app.run(debug=True)
 # Run the application
 root.mainloop()
 
